@@ -14,7 +14,7 @@ import warnings
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
-def load_pretrained_weights(model, pretrained_path):
+def load_pretrained_weights(model, pretrained_path, use_se=False):
     """
     Load pretrained weights into the model
     
@@ -33,7 +33,10 @@ def load_pretrained_weights(model, pretrained_path):
                 pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items()}
             
             # Load the weights
-            model.load_state_dict(pretrained_dict, strict=True)
+            if use_se:
+                model.load_state_dict(pretrained_dict, strict=False)
+            else:
+                model.load_state_dict(pretrained_dict, strict=True)
             print(f"Loaded pretrained weights from: {pretrained_path}")
             
         except Exception as e:
@@ -139,11 +142,14 @@ def TrainTransferLearning(data_directory, pretrained_path=None, encoding_depth=2
     train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
+    print(f"Training batch length: {len(train_loader)}")
+    print(f"Validation batch length: {len(val_loader)}")
+
     # Create model
     Chi_Net = xQSM(EncodingDepth=encoding_depth, ini_chNo=ini_chNo, use_se=use_se)
     
     # Load pretrained weights if available
-    Chi_Net = load_pretrained_weights(Chi_Net, pretrained_path)
+    Chi_Net = load_pretrained_weights(Chi_Net, pretrained_path, use_se=use_se)
     
     # Count trainable vs total parameters (Should be the same)
     total_params = sum(p.numel() for p in Chi_Net.parameters())
