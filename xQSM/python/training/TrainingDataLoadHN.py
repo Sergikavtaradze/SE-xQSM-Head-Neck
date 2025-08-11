@@ -18,13 +18,13 @@ class QSMDataSet(data.Dataset):
     brain_test_subjects=None
     # Specific for dataset of 10 subjects each with 6 repetition
     # 80/20 split
-    train_num_patches = 48*20
-    val_num_patches = 12*20
+    train_num_patches = 48*125
+    val_num_patches = 12*125
     
     # We have 56 Volumes for the 8 subjects
     # We use 56*20 patches per epoch (1120), could use less
     def __init__(self, root = './', split_type='train', transform=None, include_noise=True, patch_size=(32, 32, 32), 
-                 stride=(24, 36, 20), num_random_patches_per_vol=42, brain_only=False, affine=None):
+                 stride=(38, 38, 38), num_random_patches_per_vol=42, brain_only=False, affine=False):
         super(QSMDataSet, self).__init__()
         self.root = root
         self.split_type = split_type
@@ -47,7 +47,7 @@ class QSMDataSet(data.Dataset):
         # Find all available data files
         self.files = []
         self.vol_shapes = []
-        self.scan_data_directory()
+        self._scan_data_directory()
 
         self.fixed_patches = []
         self.random_patch_meta = []
@@ -103,73 +103,53 @@ class QSMDataSet(data.Dataset):
             'test': cls.brain_test_subjects if cls.brain_test_subjects else []
         }
 
-    def scan_data_directory(self):
+    def _scan_data_directory(self):
         """Scan the data directory for current split subjects only"""
         current_subjects = self.current_subjects
         
         if not current_subjects:
             return
         print(f"These are the current subject {current_subjects}")
-        if not self.brain_only:
-            for subject in current_subjects:
-                # Create pattern for this specific subject
-                input_pattern = os.path.join(self.root, f"{subject}/ses-*/qsm/*_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz")
-                input_files = glob.glob(input_pattern)
-                for input_file in input_files:
-                    # Extract subject and session from filename
-                    filename = os.path.basename(input_file)
-                    # Parse sub-XX_ses-XX from filename
-                    parts = filename.split('_')
-                    if len(parts) >= 2:
-                        sub_id = parts[0]  # sub-XX
-                        ses_id = parts[1]  # ses-XX
-                        
-                        # Construct the corresponding target file path
-                        target_filename = f"{sub_id}_{ses_id}_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap.nii.gz"
-                        target_file = os.path.join(os.path.dirname(input_file), target_filename)
-                        
-                        # Check if both files exist
-                        if os.path.exists(input_file) and os.path.exists(target_file):
-                            # Input shape used later for patchwise training
-                            input_shape = nib.load(input_file).shape
-                            self.vol_shapes.append(input_shape)
-                            self.files.append({
-                                "input": input_file,
-                                "target": target_file,
-                                "subject": sub_id,
-                                "session": ses_id,
-                                "name": f"{sub_id}_{ses_id}"
-                            })
+        
+        # Determine file patterns based on brain_only flag
+        if self.brain_only:
+            input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield_masked_cropped.nii.gz"
+            target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap_masked_cropped.nii.gz"
         else:
-            for subject in current_subjects:
-                # Create pattern for this specific subject
-                input_pattern = os.path.join(self.root, f"{subject}/ses-*/qsm/*_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield_masked_cropped.nii.gz")
-                input_files = glob.glob(input_pattern)       
-                for input_file in input_files:
-                    # Extract subject and session from filename
-                    filename = os.path.basename(input_file)
-                    # Parse sub-XX_ses-XX from filename
-                    parts = filename.split('_')
-                    if len(parts) >= 2:
-                        sub_id = parts[0]  # sub-XX
-                        ses_id = parts[1]  # ses-XX
-                        
-                        # Construct the corresponding target file path
-                        target_filename = f"{sub_id}_{ses_id}_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap_masked_cropped.nii.gz"
-                        target_file = os.path.join(os.path.dirname(input_file), target_filename)
-                        
-                        # Check if both files exist
-                        if os.path.exists(input_file) and os.path.exists(target_file):
-                            # Input shape used later for patchwise training
-                            input_shape = nib.load(input_file).shape
-                            self.vol_shapes.append(input_shape)
-                            self.files.append({
-                                "input": input_file,
-                                "target": target_file,
-                                "subject": sub_id,
-                                "session": ses_id,
-                                "name": f"{sub_id}_{ses_id}"
-                            })
+            input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"
+            target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap.nii.gz"
+        
+        # Process all subjects with the determined patterns
+        for subject in current_subjects:
+            # Create pattern for this specific subject
+            input_pattern = os.path.join(self.root, f"{subject}/ses-*/qsm/*{input_suffix}")
+            input_files = glob.glob(input_pattern)
+            
+            for input_file in input_files:
+                # Extract subject and session from filename
+                filename = os.path.basename(input_file)
+                # Parse sub-XX_ses-XX from filename
+                parts = filename.split('_')
+                if len(parts) >= 2:
+                    sub_id = parts[0]  # sub-XX
+                    ses_id = parts[1]  # ses-XX
+                    
+                    # Construct the corresponding target file path
+                    target_filename = f"{sub_id}_{ses_id}{target_suffix}"
+                    target_file = os.path.join(os.path.dirname(input_file), target_filename)
+                    
+                    # Check if both files exist
+                    if os.path.exists(input_file) and os.path.exists(target_file):
+                        # Input shape used later for patchwise training
+                        input_shape = nib.load(input_file).shape
+                        self.vol_shapes.append(input_shape)
+                        self.files.append({
+                            "input": input_file,
+                            "target": target_file,
+                            "subject": sub_id,
+                            "session": ses_id,
+                            "name": f"{sub_id}_{ses_id}"
+                        })
     def _generate_patch_info(self):
         # Generate fixed patches
         for vol_idx, _ in enumerate(self.files):
@@ -205,6 +185,7 @@ class QSMDataSet(data.Dataset):
         if self.affine:
             return len(self.files)
         else:
+            #return len(self.random_patch_meta)
             return len(self.fixed_patches) + len(self.random_patch_meta)
     
     def __getitem__(self, index):
@@ -339,8 +320,8 @@ if __name__ == '__main__':
         BATCH_SIZE = 2
         print(f"This is the data directory {DATA_DIRECTORY}")
         # Create subset datasets
-        train_dataset = QSMDataSet(root = DATA_DIRECTORY, split_type='train')
-        val_dataset = QSMDataSet(root = DATA_DIRECTORY, split_type='val')
+        train_dataset = QSMDataSet(root = DATA_DIRECTORY, split_type='train', brain_only=False)
+        val_dataset = QSMDataSet(root = DATA_DIRECTORY, split_type='val', brain_only=False)
         
         # Create dataloaders
         trainloader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
