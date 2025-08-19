@@ -375,7 +375,6 @@ def TrainQSMNetwork(data_directory, pretrained_path=None, model_type='model1',
 
     # Optimizer
     optimizer = optim.Adam(model.parameters(), lr=LR)
-    scheduler = LS.MultiStepLR(optimizer, milestones=[50, 80], gamma=0.1)
     
     # Track best validation loss
     best_val_loss = float('inf')
@@ -441,9 +440,6 @@ def TrainQSMNetwork(data_directory, pretrained_path=None, model_type='model1',
         
         # Validation phase
         val_loss = validate_model(model, val_loader, criterion, device)
-        
-        # Learning rate scheduler step
-        scheduler.step()
         
         # Calculate timing
         time_end = time.time()
