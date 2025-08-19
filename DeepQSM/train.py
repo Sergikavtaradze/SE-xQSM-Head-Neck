@@ -12,7 +12,6 @@ import os
 import pickle
 import logging
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 import argparse
 import warnings
 import numpy as np
@@ -143,9 +142,6 @@ class QSMTrainer:
         
         # Setup logging
         self.logger = self._setup_logger()
-        
-        # Setup tensorboard
-        self.writer = SummaryWriter(log_dir)
         
         # Training state
         self.epoch = 0
@@ -295,12 +291,6 @@ class QSMTrainer:
             log_msg += f', Time: {epoch_time:.2f}s'
             self.logger.info(log_msg)
             
-            # Tensorboard logging
-            self.writer.add_scalar('Loss/Train', train_loss, epoch)
-            if self.val_loader is not None:
-                self.writer.add_scalar('Loss/Validation', val_loss, epoch)
-            self.writer.add_scalar('Time/Epoch', epoch_time, epoch)
-            
             # Check if this is the best model
             is_best = False
             if self.val_loader is not None and val_loss < self.best_val_loss:
@@ -312,7 +302,6 @@ class QSMTrainer:
                 self.save_checkpoint(epoch, is_best)
         
         self.logger.info("Training completed!")
-        self.writer.close()
         
         # Save final training history
         history_path = os.path.join(self.log_dir, 'training_history.pkl')
