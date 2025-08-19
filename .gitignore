@@ -14,6 +14,9 @@ xQSM/ckpt/
 xQSM/python/eval/*Inference_Results/
 xQSM/python/eval/run_demo.ipynb
 xQSM/python/eval/inference_results/
+simulated_volumes_1000_nifti/
+simulated_volumes_1000/
+*copy*
 
 # venv (not needed on github)
 QSM/
