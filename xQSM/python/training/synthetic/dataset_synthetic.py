@@ -166,8 +166,8 @@ class xQSMSyntheticDataset(Dataset):
     
     def _load_volume(self, volume_path: str) -> np.ndarray:
         """Load a single volume from file path"""
-        return nib.load(volume_path).get_fdata()
-    
+        return nib.load(volume_path).get_fdata(dtype=np.float32)
+
     def _load_all_volumes(self) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """Load all volumes into memory"""
         print(f"Loading all {len(self.split_files)} volumes into memory...")
@@ -306,6 +306,80 @@ def SigPower(ins):
     return torch.div(tmp1, ll)
 
 
+# def create_xqsm_synthetic_dataloaders(
+#     data_directory: str,
+#     patch_size: Union[int, Tuple[int, int, int]] = 48,
+#     patches_per_volume: int = 100,
+#     batch_size: int = 32,
+#     num_workers: int = 4,
+#     train_ratio: float = 0.8,
+#     normalize: bool = True,
+#     include_noise: bool = True,
+#     **dataset_kwargs
+# ) -> Tuple[DataLoader, DataLoader]:
+#     """
+#     Create train and validation DataLoaders for xQSM synthetic training
+    
+#     Args:
+#         data_directory: Directory containing synthetic data
+#         patch_size: Size of patches to extract
+#         patches_per_volume: Number of patches per volume per epoch
+#         batch_size: Batch size for training
+#         num_workers: Number of worker processes for data loading
+#         train_ratio: Ratio of data for training
+#         normalize: Whether to normalize data
+#         include_noise: Whether to add noise augmentation
+#         **dataset_kwargs: Additional arguments for Dataset
+    
+#     Returns:
+#         Tuple of (train_loader, val_loader)
+#     """
+    
+#     # Create training dataset
+#     train_dataset = xQSMSyntheticDataset(
+#         data_directory=data_directory,
+#         split_type='train',
+#         patch_size=patch_size,
+#         patches_per_volume=patches_per_volume,
+#         train_ratio=train_ratio,
+#         normalize=normalize,
+#         include_noise=include_noise,
+#         preload_data=preload_data,
+#         **dataset_kwargs
+#     )
+    
+#     # Create validation dataset
+#     val_dataset = xQSMSyntheticDataset(
+#         data_directory=data_directory,
+#         split_type='val',
+#         patch_size=patch_size,
+#         patches_per_volume=patches_per_volume // 2,  # Fewer patches for validation
+#         train_ratio=train_ratio,
+#         normalize=normalize,
+#         include_noise=False,  # No noise for validation
+#         **dataset_kwargs
+#     )
+    
+#     train_loader = DataLoader(
+#         train_dataset,
+#         batch_size=batch_size,
+#         shuffle=True,
+#         num_workers=num_workers,
+#         pin_memory=torch.cuda.is_available(),
+#         drop_last=True
+#     )
+    
+#     val_loader = DataLoader(
+#         val_dataset,
+#         batch_size=batch_size,
+#         shuffle=False,
+#         num_workers=num_workers,
+#         pin_memory=torch.cuda.is_available(),
+#         drop_last=False
+#     )
+    
+#     return train_loader, val_loader
+
 def create_xqsm_synthetic_dataloaders(
     data_directory: str,
     patch_size: Union[int, Tuple[int, int, int]] = 48,
@@ -315,27 +389,12 @@ def create_xqsm_synthetic_dataloaders(
     train_ratio: float = 0.8,
     normalize: bool = True,
     include_noise: bool = True,
+    persistent_workers: bool = True,            # NEW
+    prefetch_factor: int = 4,                   # NEW
+    preload_data: bool = True,                  # NEW (passed into datasets)
     **dataset_kwargs
 ) -> Tuple[DataLoader, DataLoader]:
-    """
-    Create train and validation DataLoaders for xQSM synthetic training
-    
-    Args:
-        data_directory: Directory containing synthetic data
-        patch_size: Size of patches to extract
-        patches_per_volume: Number of patches per volume per epoch
-        batch_size: Batch size for training
-        num_workers: Number of worker processes for data loading
-        train_ratio: Ratio of data for training
-        normalize: Whether to normalize data
-        include_noise: Whether to add noise augmentation
-        **dataset_kwargs: Additional arguments for Dataset
-    
-    Returns:
-        Tuple of (train_loader, val_loader)
-    """
-    
-    # Create training dataset
+    # ...
     train_dataset = xQSMSyntheticDataset(
         data_directory=data_directory,
         split_type='train',
@@ -344,39 +403,41 @@ def create_xqsm_synthetic_dataloaders(
         train_ratio=train_ratio,
         normalize=normalize,
         include_noise=include_noise,
+        preload_data=preload_data,              # NEW
         **dataset_kwargs
     )
-    
-    # Create validation dataset
+    # ...
     val_dataset = xQSMSyntheticDataset(
         data_directory=data_directory,
         split_type='val',
         patch_size=patch_size,
-        patches_per_volume=patches_per_volume // 2,  # Fewer patches for validation
+        patches_per_volume=patches_per_volume // 2,
         train_ratio=train_ratio,
         normalize=normalize,
-        include_noise=False,  # No noise for validation
+        include_noise=False,
+        preload_data=preload_data,              # NEW
         **dataset_kwargs
     )
-    
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
-        drop_last=True
+        drop_last=True,
+        persistent_workers=persistent_workers,  # NEW
+        prefetch_factor=prefetch_factor         # NEW
     )
-    
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
-        drop_last=False
+        drop_last=False,
+        persistent_workers=persistent_workers,  # NEW
+        prefetch_factor=prefetch_factor         # NEW
     )
-    
     return train_loader, val_loader
 
 
