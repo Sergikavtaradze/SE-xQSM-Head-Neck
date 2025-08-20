@@ -6,7 +6,7 @@
 #$ -l gpu_type=a6000|P100|V100
  
 # Set the job name, output file paths
-#$ -N Aug19_xQSM_Synthetic_Train_lr4e-4_ps48_ep500_SE
+#$ -N Aug20_xQSM_Synthetic_Train_lr4e-4_ps48_ep100_bs80_SE
 #$ -o /cluster/project7/SAMed/xQSM/2025-Summer-Research/xQSM/python/training/synthetic/job_info
 #$ -e /cluster/project7/SAMed/xQSM/2025-Summer-Research/xQSM/python/training/synthetic/job_info
 #$ -wd /home/mobislam
@@ -58,12 +58,17 @@ else
     GPU_FLAG=""
 fi
 
+# Navigate to the directory containing the training script
+cd /cluster/project7/SAMed/xQSM/2025-Summer-Research/xQSM/python/training/synthetic/
+
 python3 train_synthetic.py \
 --data_directory "/cluster/project7/SAMed/xQSM/2025-Summer-Research/simulated_volumes_1000_nifti" \
 --snapshot_path "/cluster/project7/SAMed/xQSM/2025-Summer-Research/xQSM/python/training/synthetic/ckpt/" \
---ckpt_folder "xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE" \
+--ckpt_folder "xQSM_synthetic_bs80_ep100_lr4e-4_ps48_SE" \
 --learning_rate 0.0004 \
---batch_size 32 \
---epochs 500 \
+--batch_size 80 \
+--epochs 100 \
 --patch_size 48 \
+--initial_channels 32 \
+--encoding_depth 2 \
 --use_se
