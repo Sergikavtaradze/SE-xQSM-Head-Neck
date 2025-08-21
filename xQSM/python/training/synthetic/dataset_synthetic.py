@@ -28,7 +28,6 @@ class xQSMSyntheticDataset(Dataset):
         preload_data: bool = False,
         normalize: bool = True,
         include_noise: bool = True,
-        data_format: str = "paired"  # "paired" or "separate"
     ):
         """
         Args:
@@ -41,7 +40,6 @@ class xQSMSyntheticDataset(Dataset):
             preload_data: Whether to load all data into memory
             normalize: Whether to normalize the data
             include_noise: Whether to add noise augmentation during training
-            data_format: "paired" if input/target are the same files, "separate" if different
         """
         self.data_directory = data_directory
         self.split_type = split_type
@@ -52,7 +50,6 @@ class xQSMSyntheticDataset(Dataset):
         self.preload_data = preload_data
         self.normalize = normalize
         self.include_noise = include_noise
-        self.data_format = data_format
         
         # Noise parameters (consistent with xQSM training)
         self.Prob = torch.tensor(0.8)  # 20% probability to add noise
@@ -80,59 +77,31 @@ class xQSMSyntheticDataset(Dataset):
         """Scan directory for synthetic data files"""
         data_path = Path(self.data_directory)
         
-        if self.data_format == "paired":
-            # Assume each .nii.gz file can serve as both input and target
-            # This is typical for synthetic QSM data where field maps are used as both
-            nii_files = list(data_path.glob("*.nii.gz"))
-            if not nii_files:
-                nii_files = list(data_path.glob("*.nii"))
-            
-            for nii_file in nii_files:
-                # Load one file to get shape
-                nii_data = nib.load(str(nii_file))
-                shape = nii_data.shape
-                
-                self.files.append({
-                    "input": str(nii_file),
-                    "target": str(nii_file),  # Same file used as target
-                    "name": nii_file.stem,
-                    "shape": shape
-                })
-                self.vol_shapes.append(shape)
+        # Look for input and target directories or patterns
+        input_pattern = data_path / "vol_field*.nii.gz"
+        target_pattern = data_path / "vol_susc*.nii.gz"
         
-        elif self.data_format == "separate":
-            # Look for input and target directories or patterns
-            input_pattern = data_path / "input" / "*.nii.gz"
-            target_pattern = data_path / "target" / "*.nii.gz"
+        input_files = sorted(glob.glob(str(input_pattern)))
+        target_files = sorted(glob.glob(str(target_pattern)))
+        
+        assert len(input_files) == len(target_files), \
+            f"Mismatch: {len(input_files)} input files vs {len(target_files)} target files"
+        
+        for input_file, target_file in zip(input_files, target_files):
+            # Load one file to get shape
+            nii_data = nib.load(input_file)
+            shape = nii_data.shape
             
-            input_files = sorted(glob.glob(str(input_pattern)))
-            target_files = sorted(glob.glob(str(target_pattern)))
+            input_name = Path(input_file).stem
+            target_name = Path(target_file).stem
             
-            if not input_files:
-                input_pattern = data_path / "input" / "*.nii"
-                input_files = sorted(glob.glob(str(input_pattern)))
-            if not target_files:
-                target_pattern = data_path / "target" / "*.nii"
-                target_files = sorted(glob.glob(str(target_pattern)))
-            
-            assert len(input_files) == len(target_files), \
-                f"Mismatch: {len(input_files)} input files vs {len(target_files)} target files"
-            
-            for input_file, target_file in zip(input_files, target_files):
-                # Load one file to get shape
-                nii_data = nib.load(input_file)
-                shape = nii_data.shape
-                
-                input_name = Path(input_file).stem
-                target_name = Path(target_file).stem
-                
-                self.files.append({
-                    "input": input_file,
-                    "target": target_file,
-                    "name": f"{input_name}_{target_name}",
-                    "shape": shape
-                })
-                self.vol_shapes.append(shape)
+            self.files.append({
+                "input": input_file,
+                "target": target_file,
+                "name": f"{input_name}_{target_name}",
+                "shape": shape
+            })
+            self.vol_shapes.append(shape)
         
         print(f"Found {len(self.files)} volume pairs in {self.data_directory}")
         if not self.files:
@@ -166,7 +135,7 @@ class xQSMSyntheticDataset(Dataset):
     
     def _load_volume(self, volume_path: str) -> np.ndarray:
         """Load a single volume from file path"""
-        return nib.load(volume_path).get_fdata(dtype=np.float32)
+        return nib.load(volume_path).get_fdata(dtype=np.float32) #training is fp32
 
     def _load_all_volumes(self) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """Load all volumes into memory"""
@@ -306,80 +275,6 @@ def SigPower(ins):
     return torch.div(tmp1, ll)
 
 
-# def create_xqsm_synthetic_dataloaders(
-#     data_directory: str,
-#     patch_size: Union[int, Tuple[int, int, int]] = 48,
-#     patches_per_volume: int = 100,
-#     batch_size: int = 32,
-#     num_workers: int = 4,
-#     train_ratio: float = 0.8,
-#     normalize: bool = True,
-#     include_noise: bool = True,
-#     **dataset_kwargs
-# ) -> Tuple[DataLoader, DataLoader]:
-#     """
-#     Create train and validation DataLoaders for xQSM synthetic training
-    
-#     Args:
-#         data_directory: Directory containing synthetic data
-#         patch_size: Size of patches to extract
-#         patches_per_volume: Number of patches per volume per epoch
-#         batch_size: Batch size for training
-#         num_workers: Number of worker processes for data loading
-#         train_ratio: Ratio of data for training
-#         normalize: Whether to normalize data
-#         include_noise: Whether to add noise augmentation
-#         **dataset_kwargs: Additional arguments for Dataset
-    
-#     Returns:
-#         Tuple of (train_loader, val_loader)
-#     """
-    
-#     # Create training dataset
-#     train_dataset = xQSMSyntheticDataset(
-#         data_directory=data_directory,
-#         split_type='train',
-#         patch_size=patch_size,
-#         patches_per_volume=patches_per_volume,
-#         train_ratio=train_ratio,
-#         normalize=normalize,
-#         include_noise=include_noise,
-#         preload_data=preload_data,
-#         **dataset_kwargs
-#     )
-    
-#     # Create validation dataset
-#     val_dataset = xQSMSyntheticDataset(
-#         data_directory=data_directory,
-#         split_type='val',
-#         patch_size=patch_size,
-#         patches_per_volume=patches_per_volume // 2,  # Fewer patches for validation
-#         train_ratio=train_ratio,
-#         normalize=normalize,
-#         include_noise=False,  # No noise for validation
-#         **dataset_kwargs
-#     )
-    
-#     train_loader = DataLoader(
-#         train_dataset,
-#         batch_size=batch_size,
-#         shuffle=True,
-#         num_workers=num_workers,
-#         pin_memory=torch.cuda.is_available(),
-#         drop_last=True
-#     )
-    
-#     val_loader = DataLoader(
-#         val_dataset,
-#         batch_size=batch_size,
-#         shuffle=False,
-#         num_workers=num_workers,
-#         pin_memory=torch.cuda.is_available(),
-#         drop_last=False
-#     )
-    
-#     return train_loader, val_loader
-
 def create_xqsm_synthetic_dataloaders(
     data_directory: str,
     patch_size: Union[int, Tuple[int, int, int]] = 48,
@@ -394,7 +289,7 @@ def create_xqsm_synthetic_dataloaders(
     preload_data: bool = True,                  # NEW (passed into datasets)
     **dataset_kwargs
 ) -> Tuple[DataLoader, DataLoader]:
-    # ...
+    
     train_dataset = xQSMSyntheticDataset(
         data_directory=data_directory,
         split_type='train',
@@ -406,7 +301,7 @@ def create_xqsm_synthetic_dataloaders(
         preload_data=preload_data,              # NEW
         **dataset_kwargs
     )
-    # ...
+    
     val_dataset = xQSMSyntheticDataset(
         data_directory=data_directory,
         split_type='val',
