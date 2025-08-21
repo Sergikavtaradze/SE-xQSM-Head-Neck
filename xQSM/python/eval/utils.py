@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import numpy as np
 import math
 from math import exp, log10, sqrt
-
+from scipy.ndimage import gaussian_filter
 
 def psnr(img1, img2):
     mse = np.mean((img1 - img2)** 2)
@@ -112,3 +112,78 @@ def zero_removing(padded_tensor, pos):
     Field = padded_tensor[pos_init[0]:pos_end[0], pos_init[1]:pos_end[1], pos_init[2]:pos_end[2]]
     # print(f"This is the field shape {Field.shape}")
     return Field
+
+# Calculate xSIM
+
+def compute_xsim(img1, img2, mask=None, sw=None):
+    """
+    Python Reimplementation of the MATLAB code provided by the Carlo Milovic.
+    Compute xSIM between two 3D images.
+    Args:
+        img1: Reference image
+        img2: Target image
+        mask: Mask image
+        sw: Gaussian window size
+    Returns:
+        mean_xssim: Mean SSIM with the mask applied
+        mean_ssim: Mean SSIM without the mask applied
+        ssim_map: SSIM map
+    """
+    
+    if img1.shape != img2.shape:
+        raise ValueError("Reference and Target images do not have matching dimensions!")
+    
+    s = img1.shape
+    
+    # Argument parsing
+    if sw is None:
+        sw = np.array([3, 3, 3])
+    else:
+        sw = np.array(sw)
+    
+    if np.any(np.array(s) < sw):
+        raise ValueError("Gaussian window is larger than the image!")
+    
+    if mask is None:
+        mask = (img2 != 0)
+    
+    K = np.array([0.01, 0.001])
+    L = 1.0
+    C1 = (K[0] * L) ** 2
+    C2 = (K[1] * L) ** 2
+    
+    # Convert to float for Gaussian filtering
+    img1_float = img1.astype(np.float64)
+    img2_float = img2.astype(np.float64)
+    
+    # Calculate truncate parameter to match MATLAB's FilterSize
+
+    # Truncate Calculation: truncate_val = sw[0] / 1.5 ensures that the kernel size matches MATLAB's FilterSize = 2*sw + 1
+    # Mathematical Relationship:
+    # SciPy: kernel_size = 2 * round(truncate * sigma) + 1
+    # MATLAB: FilterSize = 2*sw + 1
+    # To match: 2 * round(truncate * 1.5) + 1 = 2*sw + 1 → truncate = sw / 1.5
+    truncate_val = sw[0] / 1.5  # Use first dimension for calculation
+    
+    # Compute Gaussian filtered images with exact window size matching MATLAB
+    mu1 = gaussian_filter(img1_float, sigma=1.5, mode='nearest', truncate=truncate_val)
+    mu2 = gaussian_filter(img2_float, sigma=1.5, mode='nearest', truncate=truncate_val)
+    
+    mu1_sq = mu1 * mu1
+    mu2_sq = mu2 * mu2
+    mu1_mu2 = mu1 * mu2
+    
+    sigma1_sq = gaussian_filter(img1_float*img1_float, sigma=1.5, mode='nearest', truncate=truncate_val) - mu1_sq
+    sigma2_sq = gaussian_filter(img2_float*img2_float, sigma=1.5, mode='nearest', truncate=truncate_val) - mu2_sq
+    sigma12 = gaussian_filter(img1_float*img2_float, sigma=1.5, mode='nearest', truncate=truncate_val) - mu1_mu2
+    
+    # Compute SSIM map
+    numerator = (2 * mu1_mu2 + C1) * (2 * sigma12 + C2)
+    denominator = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
+    ssim_map = numerator / denominator
+    mean_ssim = ssim_map.mean()
+    
+    # Compute mean SSIM over the mask
+    mean_xssim = np.sum(ssim_map * mask) / np.sum(mask)
+    
+    return mean_xssim, mean_ssim, ssim_map
