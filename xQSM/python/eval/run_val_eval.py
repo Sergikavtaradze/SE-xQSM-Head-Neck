@@ -62,8 +62,8 @@ def evaluate_model(model, val_loader, device, save_dir='./qualitative_results'):
             
             # Save per-subject metrics
             subj_name = names[0]
-            results[subj_name] = {'psnr': float(psnr_val), 'ssim': float(mean_ssim), 'xsim': float(xsim_val)}
-            print(f"Subject {subj_name}: PSNR={psnr_val:.3f}, SSIM={mean_ssim:.4f}, xSIM={xsim_val:.4f}")
+            results[subj_name] = {'psnr': float(psnr_val), 'ssim': float(mean_ssim), 'ssim_xsim': float(ssim_xsim_val), 'xsim': float(xsim_val)}
+            print(f"Subject {subj_name}: PSNR={psnr_val:.3f}, SSIM={mean_ssim:.4f}, SSIM_xSIM={ssim_xsim_val:.4f}, xSIM={xsim_val:.4f}")
 
             # Save as NIfTI
             nib.save(nib.Nifti1Image(inputs.squeeze().cpu().numpy(), input_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_input.nii.gz"))
