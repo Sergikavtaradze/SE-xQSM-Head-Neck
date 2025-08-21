@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../trai
 
 from TrainingDataLoadHN import QSMDataSet
 from xQSM import xQSM
-from utils import psnr, ssim, zero_padding, zero_removing
+from utils import psnr, ssim, zero_padding, zero_removing, compute_xsim
 
 def evaluate_model(model, val_loader, device, save_dir='./qualitative_results'):
     results = {}
@@ -55,27 +55,34 @@ def evaluate_model(model, val_loader, device, save_dir='./qualitative_results'):
             # Average SSIM over all valid slices
             mean_ssim = np.mean(ssim_values) if ssim_values else 0.0
             
+            # Calculate xSIM
+            outputs_np = outputs.cpu().numpy()
+            targets_np = targets.cpu().numpy()
+            xsim_val, ssim_xsim_val, _ = compute_xsim(outputs_np, targets_np)
+            
             # Save per-subject metrics
             subj_name = names[0]
-            results[subj_name] = {'psnr': float(psnr_val), 'ssim': float(mean_ssim)}
-            print(f"Subject {subj_name}: PSNR={psnr_val:.3f}, SSIM={mean_ssim:.4f}")
+            results[subj_name] = {'psnr': float(psnr_val), 'ssim': float(mean_ssim), 'xsim': float(xsim_val)}
+            print(f"Subject {subj_name}: PSNR={psnr_val:.3f}, SSIM={mean_ssim:.4f}, xSIM={xsim_val:.4f}")
 
             # Save as NIfTI
-            #nib.save(nib.Nifti1Image(inputs.squeeze().cpu().numpy(), input_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_input.nii.gz"))
-            #nib.save(nib.Nifti1Image(targets.squeeze().cpu().numpy(), target_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_target.nii.gz"))
-            #nib.save(nib.Nifti1Image(outputs.squeeze().cpu().numpy(), input_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_output.nii.gz"))
+            nib.save(nib.Nifti1Image(inputs.squeeze().cpu().numpy(), input_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_input.nii.gz"))
+            nib.save(nib.Nifti1Image(targets.squeeze().cpu().numpy(), target_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_target.nii.gz"))
+            nib.save(nib.Nifti1Image(outputs.squeeze().cpu().numpy(), input_affine.squeeze()), os.path.join(save_dir, f"{subj_name}_output.nii.gz"))
 
     # Write per-subject metrics and overall averages to a .txt file
     metrics_path = os.path.join(save_dir, "metrics.txt")
     subjects = sorted(results.keys())
     avg_psnr = float(np.mean([results[s]['psnr'] for s in subjects])) if subjects else 0.0
     avg_ssim = float(np.mean([results[s]['ssim'] for s in subjects])) if subjects else 0.0
+    avg_ssim_xsim = float(np.mean([results[s]['ssim_xsim'] for s in subjects])) if subjects else 0.0
+    avg_xsim = float(np.mean([results[s]['xsim'] for s in subjects])) if subjects else 0.0
 
     with open(metrics_path, 'w') as f:
-        f.write("Subject\tPSNR\tSSIM\n")
+        f.write("Subject\tPSNR\tSSIM\tSSIM_xSIM\txSIM\n")
         for s in subjects:
-            f.write(f"{s}\t{results[s]['psnr']:.3f}\t{results[s]['ssim']:.4f}\n")
-        f.write(f"\nAverage\t{avg_psnr:.3f}\t{avg_ssim:.4f}\n")
+            f.write(f"{s}\t{results[s]['psnr']:.3f}\t{results[s]['ssim']:.4f}\t{results[s]['ssim_xsim']:.4f}\t{results[s]['xsim']:.4f}\n")
+        f.write(f"\nAverage\t{avg_psnr:.3f}\t{avg_ssim:.4f}\t{avg_ssim_xsim:.4f}\t{avg_xsim:.4f}\n")
 
     print(f"Saved metrics to: {metrics_path}")
     return results
@@ -115,4 +122,10 @@ if __name__ == '__main__':
 
 # python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug7/ckpt/Jul31_bs32_ep100_lr1e-4_ps48_xQSM_NoFreeze/xQSM_TransferLearning_Best.pth"
 
-# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug8/ckpt/Aug7_bs32_ep100_lr4e-5_ps48_xQSM_SE/xQSM_TransferLearning_Best.pth" --save_dir "./Aug7_bs32_ep100_lr4e-5_ps48_xQSM_SE" --squeeze_exc
+# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/2025-Summer-Research/xQSM/ckpt/synthetic_Aug20/ckpt/xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE/xQSM_Synthetic_Best.pth" --save_dir "./xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE"
+
+# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/synthetic_Aug20/ckpt/xQSM_synthetic_bs32_ep100_lr4e-4_ps48/xQSM_Synthetic_Best.pth" --save_dir "./xQSM_synthetic_bs32_ep100_lr4e-4_ps48" --ini_chNo 32
+
+# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/synthetic_Aug20/ckpt/xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE/xQSM_Synthetic_Best.pth" --save_dir "./xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE" --ini_chNo 32 --squeeze_exc
+
+# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug8_11/Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE/xQSM_TransferLearning_Best.pth" --save_dir "./Inference_Results/Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE" --ini_chNo 64 --squeeze_exc
