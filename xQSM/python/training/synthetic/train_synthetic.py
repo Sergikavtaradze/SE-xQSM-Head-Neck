@@ -13,6 +13,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+import warnings
 
 # Add parent directories to path to import xQSM modules
 current_dir = Path(__file__).parent
@@ -59,7 +60,9 @@ def TrainNet(
     ckpt_folder=None,
     resume_from='/cluster/project7/SAMed/xQSM/xQSM/Pretrained_Checkpoints',
     save_every=20,
-    use_se=False
+    use_se=False,
+    ini_chNo=64,
+    encoding_depth=2
 ):
     """Train the xQSM network on synthetic data"""
     
@@ -89,7 +92,7 @@ def TrainNet(
     start_epoch = 1
 
     # Initialize weights if not resuming
-    if resume_from is None:
+    if resume_from is None or ini_chNo != 64 or encoding_depth != 2:
         Chi_Net.apply(weights_init)
         print("Initialized network weights")
     else:
@@ -283,6 +286,13 @@ def main():
     print(f"Checkpoint folder: {args.ckpt_folder}")
     print("=" * 80)
 
+    if args.encoding_depth != 2:
+        warnings.warn("Encoding depth is not 2. Frozen encoding layers will have random initialization and no learning rate.")
+    elif args.initial_channels != 64:
+        warnings.warn("Initial number of channels is not 64. Frozen encoding layers will have random initialization and no learning rate.")
+    else:
+        warnings.warn("Training parameters are not optimal. Change the parameters to default values for better results.")
+
     # Create xQSM model
     Chi_Net = xQSM(
         EncodingDepth=args.encoding_depth, 
@@ -305,7 +315,8 @@ def main():
         ckpt_folder=args.ckpt_folder,
         resume_from=args.resume_from,
         save_every=args.save_every,
-        use_se=args.use_se
+        use_se=args.use_se,
+        ini_chNo=args.initial_channels
     )
     
     if success:
