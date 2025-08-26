@@ -129,3 +129,5 @@ if __name__ == '__main__':
 # python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/synthetic_Aug20/ckpt/xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE/xQSM_Synthetic_Best.pth" --save_dir "./xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE" --ini_chNo 32 --squeeze_exc
 
 # python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug8_11/Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE/xQSM_TransferLearning_Best.pth" --save_dir "./Inference_Results/Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE" --ini_chNo 64 --squeeze_exc
+
+# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug8_11/Aug8_bs32_ep100_lr4e-5_ps48_xQSM_SE/xQSM_TransferLearning_Best.pth" --save_dir "./Inference_Results/Aug8_11/Aug8_bs32_ep100_lr4e-5_ps48_xQSM_SE" --ini_chNo 64 --squeeze_exc
