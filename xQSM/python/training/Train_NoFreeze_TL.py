@@ -107,15 +107,29 @@ def SaveNet(model, epoch, snapshot_path='./transfer_learning_checkpoints', ckpt_
         best_path = os.path.join(path, 'xQSM_TransferLearning_Best.pth')
         torch.save(model.state_dict(), best_path)
 
-def TrainTransferLearning(data_directory, pretrained_path=None, encoding_depth=2, ini_chNo=64, 
-                          LR=0.001, batch_size=32, epochs=50, patch_size=(32, 32, 32), useGPU=True, 
-                          snapshot_path='./transfer_learning_checkpoints', ckpt_folder=None,
-                          use_se = False):
+def TrainTransferLearning(input_root,
+                          target_root,
+                          input_suffix=None,
+                          target_suffixes=None,
+                          pretrained_path=None,
+                          encoding_depth=2,
+                          ini_chNo=64, 
+                          LR=0.001,
+                          batch_size=32,
+                          epochs=50,
+                          patch_size=(32, 32, 32),
+                          useGPU=True, 
+                          snapshot_path='./transfer_learning_checkpoints',
+                          ckpt_folder=None,
+                          use_se=False):
     """
     Train xQSM model with transfer learning approach
     
     Args:
-        data_directory: Path to head and neck QSM data
+        input_root: Path to inputs (local field maps)
+        target_root: Path to targets (consensus/other chi-maps)
+        input_suffix: Optional override for input filename suffix
+        target_suffixes: Optional list of target suffixes (supports multi-target pairing)
         pretrained_path: Path to pretrained model weights
         encoding_depth: Depth of encoding layers
         ini_chNo: Initial number of channels
@@ -133,8 +147,22 @@ def TrainTransferLearning(data_directory, pretrained_path=None, encoding_depth=2
     print('='*80)
     
     # Data Loading
-    train_dataset = QSMDataSet(data_directory, split_type='train', patch_size=patch_size)
-    val_dataset = QSMDataSet(data_directory, split_type='val', patch_size=patch_size)
+    train_dataset = QSMDataSet(
+        input_root=input_root,
+        target_root=target_root,
+        split_type='train',
+        patch_size=patch_size,
+        input_suffix=input_suffix,
+        target_suffixes=target_suffixes
+    )
+    val_dataset = QSMDataSet(
+        input_root=input_root,
+        target_root=target_root,
+        split_type='val',
+        patch_size=patch_size,
+        input_suffix=input_suffix,
+        target_suffixes=target_suffixes
+    )
         
     print(f'Dataset: {len(train_dataset)} train, {len(val_dataset)} val samples')
     
@@ -269,8 +297,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     # Path parameters
-    parser.add_argument("--data_directory", required=True, type=str)
+    parser.add_argument("--input_root", required=True, type=str)
+    parser.add_argument("--target_root", default=None, type=str)
     parser.add_argument("--pretrained_path", required=True, type=str)
+    # Optional pattern overrides
+    parser.add_argument("--input_suffix", default=None, type=str, help="Override input filename suffix")
+    parser.add_argument("--target_suffixes", default=None, type=str, help="Comma-separated list of target suffixes")
     parser.add_argument("--snapshot_path", required=True, type=str)
     parser.add_argument("--ckpt_folder", required=True, type=str)
 
@@ -288,8 +320,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Path parameters
-    data_directory = args.data_directory
+    input_root = args.input_root
+    target_root = args.target_root if args.target_root is not None else args.input_root
     pretrained_path = args.pretrained_path
+    # Parse optional suffix overrides
+    input_suffix = args.input_suffix
+    target_suffixes = args.target_suffixes
+    # if args.target_suffixes is not None:
+    #     target_suffixes = [s.strip() for s in args.target_suffixes.split(',') if s.strip()]
     snapshot_path = args.snapshot_path
     ckpt_folder = args.ckpt_folder
     
@@ -316,7 +354,8 @@ if __name__ == '__main__':
     else:
         warnings.warn("Training parameters are not optimal. Change the parameters to default values for better Transfer Learning results.")
 
-    print(f"Data Directory: {data_directory}")
+    print(f"Input Root: {input_root}")
+    print(f"Target Root: {target_root}")
     print(f"Pretrained Weights: {pretrained_path}")
     print(f"Learning Rate: {learning_rate}")
     print(f"Batch Size: {batch_size}")
@@ -327,7 +366,10 @@ if __name__ == '__main__':
     
     ## Start transfer learning training
     TrainTransferLearning(
-        data_directory=data_directory,
+        input_root=input_root,
+        target_root=target_root,
+        input_suffix=input_suffix,
+        target_suffixes=target_suffixes,
         pretrained_path=pretrained_path,
         encoding_depth=encoding_depth,
         ini_chNo=ini_chNo,
