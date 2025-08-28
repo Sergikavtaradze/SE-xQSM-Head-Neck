@@ -256,7 +256,7 @@ def TrainTransferLearning(input_root,
             loss.backward()
             if target_suffixes is not None:
                 grad_clip = 1
-                    torch.nn.utils.clip_grad_norm_(trainable_params, grad_clip)
+                torch.nn.utils.clip_grad_norm_(trainable_params, grad_clip)
             optimizer.step()
             
             # Accumulate loss
