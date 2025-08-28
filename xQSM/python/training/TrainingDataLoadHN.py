@@ -6,6 +6,7 @@ import torch
 import nibabel as nib
 from torch.utils import data
 import glob
+from functools import wraps
 
 
 class QSMDataSet(data.Dataset):
@@ -23,11 +24,15 @@ class QSMDataSet(data.Dataset):
     # We have 56 Volumes for the 8 subjects
     # We use 56*20 patches per epoch (1120), could use less
     def __init__(self, input_root = './', target_root=None, split_type='train', transform=None, include_noise=True, patch_size=(32, 32, 32), 
-                 stride=(38, 38, 38), num_random_patches_per_vol=42, brain_only=False, affine=False):
+                 stride=(38, 38, 38), num_random_patches_per_vol=42, brain_only=False, affine=False,
+                 input_suffix=None, target_suffixes=None):
         super(QSMDataSet, self).__init__()
         # Support separate roots for inputs and targets. If target_root is None, fall back to input_root
         self.input_root = input_root
         self.target_root = target_root if target_root is not None else input_root
+        # Optional overrides for suffix patterns
+        self.input_suffix = input_suffix
+        self.target_suffixes = target_suffixes
         self.split_type = split_type
         self.transform = transform
         self.include_noise = include_noise
@@ -112,16 +117,23 @@ class QSMDataSet(data.Dataset):
             return
         print(f"These are the current subject {current_subjects}")
         
-        # Determine file patterns based on brain_only flag
-        if self.brain_only:
-            input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield_masked_cropped.nii.gz"
-            target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap_masked_cropped.nii.gz"
+        # Determine file patterns based on overrides or defaults
+        if self.input_suffix is not None:
+            input_suffix = self.input_suffix
         else:
-            # input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"
-            # target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap.nii.gz"
-            
-            input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"
-            target_suffix = "_ConsensusMean.nii.gz"
+            if self.brain_only:
+                input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield_masked_cropped.nii.gz"
+            else:
+                input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"
+
+        if self.target_suffixes is not None:
+            target_suffixes = self.target_suffixes if isinstance(self.target_suffixes, (list, tuple)) else [self.target_suffixes]
+        else:
+            if self.brain_only:
+                target_suffixes = ["_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap_masked_cropped.nii.gz"]
+            else:
+                # Default to consensus chi-map if using default non-brain data
+                target_suffixes = ["_ConsensusMean.nii.gz"]
         
         # Process all subjects with the determined patterns
         for subject in current_subjects:
@@ -139,23 +151,31 @@ class QSMDataSet(data.Dataset):
                     sub_id = parts[0]  # sub-XX
                     ses_id = parts[1]  # ses-XX
                     
-                    # Construct the corresponding target file path in target_root
-                    # Example: <target_root>/sub-XX/ses-YY/qsm/sub-XX_ses-YY_ConsensusMean.nii.gz
-                    target_filename = f"{sub_id}_{ses_id}{target_suffix}"
-                    target_file = os.path.join(self.target_root, f"{sub_id}/{ses_id}/qsm/{target_filename}")
-                    
-                    # Check if both files exist
-                    if os.path.exists(input_file) and os.path.exists(target_file):
-                        # Input shape used later for patchwise training
-                        input_shape = nib.load(input_file).shape
-                        self.vol_shapes.append(input_shape)
-                        self.files.append({
-                            "input": input_file,
-                            "target": target_file,
-                            "subject": sub_id,
-                            "session": ses_id,
-                            "name": f"{sub_id}_{ses_id}"
-                        })
+                    # Construct and verify one or more target files for this input
+                    for target_suffix in target_suffixes:
+                        target_filename = f"{sub_id}_{ses_id}{target_suffix}"
+                        target_file = os.path.join(self.target_root, f"{sub_id}/{ses_id}/qsm/{target_filename}")
+                        
+                        # Allow either .nii or .nii.gz on disk regardless of suffix form
+                        candidate_targets = [target_file]
+                        if target_file.endswith('.nii'):
+                            candidate_targets.append(target_file + '.gz')
+                        elif target_file.endswith('.nii.gz'):
+                            candidate_targets.append(target_file[:-3])
+                        found_target = next((t for t in candidate_targets if os.path.exists(t)), None)
+                        
+                        # Check if both files exist
+                        if os.path.exists(input_file) and found_target is not None:
+                            # Input shape used later for patchwise training
+                            input_shape = nib.load(input_file).shape
+                            self.vol_shapes.append(input_shape)
+                            self.files.append({
+                                "input": input_file,
+                                "target": found_target,
+                                "subject": sub_id,
+                                "session": ses_id,
+                                "name": f"{sub_id}_{ses_id}"
+                            })
     def _generate_patch_info(self):
         # Generate fixed patches
         for vol_idx, _ in enumerate(self.files):
@@ -255,7 +275,7 @@ class QSMDataSet(data.Dataset):
         target_tensor = torch.from_numpy(target_data).float()
         
         # Have to place this before the tensors are divided into patches
-        if self.affine is True:
+        if self.affine is True and self.split_type == 'val' or self.split_type == 'test' or self.split_type == 'train':
             # Be careful, Usually if the split type is train you wouldn't be evaluating it, but we are for ROI_averages calculations
             return input_tensor.unsqueeze(0), target_tensor.unsqueeze(0), name, input_affine, target_affine
         else:
@@ -313,7 +333,7 @@ def SigPower(ins):
 # Test the dataloader
 if __name__ == '__main__':
     # Update this path to your QSM data directory
-    INPUT_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_consensus'
+    INPUT_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data'
     TARGET_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_consensus'
     BATCH_SIZE = 2
     print(INPUT_ROOT)
