@@ -157,13 +157,13 @@ class xQSMSyntheticDataset(Dataset):
         print(f"Loaded {len(input_data)} volume pairs")
         return input_data, target_data
     
-    def _normalize_volume(self, volume: np.ndarray) -> np.ndarray:
-        """Normalize volume to [-1, 1] range"""
-        vol_min = volume.min()
-        vol_max = volume.max()
-        if vol_max > vol_min:
-            volume = 2 * (volume - vol_min) / (vol_max - vol_min) - 1
-        return volume
+    # def _normalize_volume(self, volume: np.ndarray) -> np.ndarray:
+    #     """Normalize volume to [-1, 1] range"""
+    #     vol_min = volume.min()
+    #     vol_max = volume.max()
+    #     if vol_max > vol_min:
+    #         volume = 2 * (volume - vol_min) / (vol_max - vol_min) - 1
+    #     return volume
     
     def _extract_random_patch(
         self, 
@@ -253,7 +253,7 @@ class xQSMSyntheticDataset(Dataset):
         target_tensor = target_tensor.unsqueeze(0)  # [1, H, W, D]
         
         # Apply transforms if provided
-        if self.transform:
+        if self.transform is not None:
             input_tensor = self.transform(input_tensor)
             target_tensor = self.transform(target_tensor)
         

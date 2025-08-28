@@ -73,8 +73,8 @@ def TrainNet(
         patches_per_volume=patches_per_volume,
         batch_size=Batchsize,
         train_ratio=train_ratio,
-        num_workers=4,
-        normalize=True,
+        num_workers=0,
+        normalize=False,
         include_noise=True
     )
     
@@ -84,7 +84,7 @@ def TrainNet(
     print('Setting up training...')
     criterion = nn.MSELoss(reduction='sum')
     optimizer1 = optim.Adam(Chi_Net.parameters(), lr=LR)
-    scheduler1 = LS.MultiStepLR(optimizer1, milestones=[50, 80], gamma=0.1)
+    scheduler1 = LS.MultiStepLR(optimizer1, milestones=[5, 8], gamma=0.1)
     
     # Track best validation loss
     best_val_loss = float('inf')
@@ -288,9 +288,9 @@ def main():
 
     if args.encoding_depth != 2:
         warnings.warn("Encoding depth is not 2. Frozen encoding layers will have random initialization and no learning rate.")
+        warnings.warn("Training parameters are not optimal. Change the parameters to default values for better results.")
     elif args.initial_channels != 64:
         warnings.warn("Initial number of channels is not 64. Frozen encoding layers will have random initialization and no learning rate.")
-    else:
         warnings.warn("Training parameters are not optimal. Change the parameters to default values for better results.")
 
     # Create xQSM model
