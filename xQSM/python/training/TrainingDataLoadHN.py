@@ -6,7 +6,6 @@ import torch
 import nibabel as nib
 from torch.utils import data
 import glob
-from functools import wraps
 
 
 class QSMDataSet(data.Dataset):
@@ -23,10 +22,12 @@ class QSMDataSet(data.Dataset):
     
     # We have 56 Volumes for the 8 subjects
     # We use 56*20 patches per epoch (1120), could use less
-    def __init__(self, root = './', split_type='train', transform=None, include_noise=True, patch_size=(32, 32, 32), 
+    def __init__(self, input_root = './', target_root=None, split_type='train', transform=None, include_noise=True, patch_size=(32, 32, 32), 
                  stride=(38, 38, 38), num_random_patches_per_vol=42, brain_only=False, affine=False):
         super(QSMDataSet, self).__init__()
-        self.root = root
+        # Support separate roots for inputs and targets. If target_root is None, fall back to input_root
+        self.input_root = input_root
+        self.target_root = target_root if target_root is not None else input_root
         self.split_type = split_type
         self.transform = transform
         self.include_noise = include_noise
@@ -116,13 +117,17 @@ class QSMDataSet(data.Dataset):
             input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield_masked_cropped.nii.gz"
             target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap_masked_cropped.nii.gz"
         else:
+            # input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"
+            # target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap.nii.gz"
+            
             input_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"
-            target_suffix = "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap.nii.gz"
+            target_suffix = "_ConsensusMean.nii.gz"
         
         # Process all subjects with the determined patterns
         for subject in current_subjects:
             # Create pattern for this specific subject
-            input_pattern = os.path.join(self.root, f"{subject}/ses-*/qsm/*{input_suffix}")
+           
+            input_pattern = os.path.join(self.input_root, f"{subject}/ses-*/qsm/*{input_suffix}")
             input_files = glob.glob(input_pattern)
             
             for input_file in input_files:
@@ -134,9 +139,10 @@ class QSMDataSet(data.Dataset):
                     sub_id = parts[0]  # sub-XX
                     ses_id = parts[1]  # ses-XX
                     
-                    # Construct the corresponding target file path
+                    # Construct the corresponding target file path in target_root
+                    # Example: <target_root>/sub-XX/ses-YY/qsm/sub-XX_ses-YY_ConsensusMean.nii.gz
                     target_filename = f"{sub_id}_{ses_id}{target_suffix}"
-                    target_file = os.path.join(os.path.dirname(input_file), target_filename)
+                    target_file = os.path.join(self.target_root, f"{sub_id}/{ses_id}/qsm/{target_filename}")
                     
                     # Check if both files exist
                     if os.path.exists(input_file) and os.path.exists(target_file):
@@ -249,12 +255,8 @@ class QSMDataSet(data.Dataset):
         target_tensor = torch.from_numpy(target_data).float()
         
         # Have to place this before the tensors are divided into patches
-        if self.affine is True and self.split_type == 'val' or self.split_type == 'test':
-            # print(f"input_tensor shape: {input_tensor.shape}")
-            # print(f"target_tensor shape: {target_tensor.shape}")
-            # print(f"name: {name}")
-            # print(f"input_affine shape: {input_affine.shape}")
-            # print(f"target_affine shape: {target_affine.shape}")
+        if self.affine is True:
+            # Be careful, Usually if the split type is train you wouldn't be evaluating it, but we are for ROI_averages calculations
             return input_tensor.unsqueeze(0), target_tensor.unsqueeze(0), name, input_affine, target_affine
         else:
             ######################
@@ -272,7 +274,6 @@ class QSMDataSet(data.Dataset):
             if self.include_noise:
                 tmp = torch.rand(1)
                 if tmp > self.Prob:
-                    tmp_mask = input_tensor != 0
                     tmp_idx = torch.randint(5, (1,1))
                     tmp_SNR = self.SNRs[tmp_idx]
                     input_tensor = AddNoise(input_tensor, tmp_SNR)
@@ -312,16 +313,19 @@ def SigPower(ins):
 # Test the dataloader
 if __name__ == '__main__':
     # Update this path to your QSM data directory
-    DATA_DIRECTORY = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data'
+    INPUT_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_consensus'
+    TARGET_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_consensus'
     BATCH_SIZE = 2
-    print(DATA_DIRECTORY)
+    print(INPUT_ROOT)
     try:
-        DATA_DIRECTORY = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data'
+        INPUT_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data'
+        TARGET_ROOT = '/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_consensus'
         BATCH_SIZE = 2
-        print(f"This is the data directory {DATA_DIRECTORY}")
+        print(f"This is the input root {INPUT_ROOT}")
+        print(f"This is the target root {TARGET_ROOT}")
         # Create subset datasets
-        train_dataset = QSMDataSet(root = DATA_DIRECTORY, split_type='train', brain_only=False)
-        val_dataset = QSMDataSet(root = DATA_DIRECTORY, split_type='val', brain_only=False)
+        train_dataset = QSMDataSet(input_root=INPUT_ROOT, target_root=TARGET_ROOT, split_type='train', brain_only=False)
+        val_dataset = QSMDataSet(input_root=INPUT_ROOT, target_root=TARGET_ROOT, split_type='val', brain_only=False)
         
         # Create dataloaders
         trainloader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
