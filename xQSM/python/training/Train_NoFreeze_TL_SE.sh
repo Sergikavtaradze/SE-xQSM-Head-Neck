@@ -6,9 +6,9 @@
 #$ -l gpu_type=a6000|P100|V100
  
 # Set the job name, output file paths
-#$ -N Train_Aug11_xQSM_SE_bs32_ep100_lr4e-4_ps48_DatasetLength
-#$ -o /cluster/project7/SAMed/xQSM/xQSM/python/job_info_mob
-#$ -e /cluster/project7/SAMed/xQSM/xQSM/python/job_info_mob
+#$ -N Train_Aug29_bs32_ep100_lr4e-5_ps48_xQSM_SE_3targets
+#$ -o /cluster/project7/SAMed/xQSM/xQSM/python/training/job_info
+#$ -e /cluster/project7/SAMed/xQSM/xQSM/python/training/job_info
 #$ -wd /home/mobislam
  
 # Activate the virtual environment
@@ -63,10 +63,12 @@ export CUDA_LAUNCH_BLOCKING=1
 ########################################################
  
 # Navigate to the directory containing the scripts
-cd /cluster/project7/SAMed/xQSM/2025-Summer-Research/xQSM/python/training
+cd /cluster/project7/SAMed/xQSM/xQSM/python/training
  
-python3 Train_NoFreeze_TL.py -bs 32 -ep 100 -lr 4e-4 -ps 48 -se \
---data_directory "/cluster/project7/SAMed/xQSM/QSM_data" \
+python3 Train_NoFreeze_TL.py -bs 32 -ep 100 -lr 4e-5 -ps 48 -se \
+--input_root "/cluster/project7/SAMed/xQSM/QSM_data" \
+--input_suffix "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz" \
+--target_suffixes "_unwrapped-SEGUE_mask-nfe_bfr-PDF_susc-autoNDI_Chimap.nii.gz,_unwrapped-SEGUE_bfr-PDF_susc-StarQSM_Chimap.nii,_unwrapped-SEGUE_bfr-PDF_susc-iterTik_Chimap.nii.gz" \
 --pretrained_path "/cluster/project7/SAMed/xQSM/xQSM/Pretrained_Checkpoints/xQSM_invivo.pth" \
 --snapshot_path "/cluster/project7/SAMed/xQSM/xQSM/python/training/ckpt/" \
---ckpt_folder "Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE"
+--ckpt_folder "Aug29_bs32_ep100_lr4e-4_ps48_xQSM_SE_3targets" 

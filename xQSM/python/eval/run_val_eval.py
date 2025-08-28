@@ -6,6 +6,7 @@ from tqdm import tqdm
 import nibabel as nib
 import sys
 import argparse
+from collections import OrderedDict
 
 # Add parent and training directories to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -95,6 +96,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for evaluation')
     parser.add_argument('--encoding_depth', type=int, default=2, help='Encoding depth for xQSM')
     parser.add_argument('--ini_chNo', type=int, default=64, help='Initial number of channels for xQSM')
+    parser.add_argument('--split', type=str, required=True, help='Split for evaluation')
     parser.add_argument('--squeeze_exc', action='store_true', help='Enable Squeeze-and-Excitation (SE) layers')
     
     args = parser.parse_args()
@@ -104,13 +106,18 @@ def main():
         print(f'  {k}: {v}')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    val_dataset = QSMDataSet(root=args.data_directory, split_type='val', include_noise=False, affine=True)
+    val_dataset = QSMDataSet(root=args.data_directory, split_type=args.split, include_noise=False, affine=True)
     
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    print(f"This is the squeeze exc: {args.squeeze_exc}")
     model = xQSM(EncodingDepth=args.encoding_depth, ini_chNo=args.ini_chNo, use_se=args.squeeze_exc)
 
-    state_dict = torch.load(args.weights_path, map_location=device, weights_only = True)
-    model.load_state_dict(state_dict)
+    state_dict = torch.load(args.weights_path, map_location=device, weights_only=True)
+
+    if any(k.startswith('module.') for k in state_dict.keys()):
+        state_dict = OrderedDict((k.replace('module.', '', 1), v) for k, v in state_dict.items())
+
+    model.load_state_dict(state_dict)  # keep strict=True default
     model.to(device)
     model.eval()
 
@@ -129,5 +136,3 @@ if __name__ == '__main__':
 # python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/synthetic_Aug20/ckpt/xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE/xQSM_Synthetic_Best.pth" --save_dir "./xQSM_synthetic_bs32_ep100_lr4e-4_ps48_SE" --ini_chNo 32 --squeeze_exc
 
 # python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug8_11/Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE/xQSM_TransferLearning_Best.pth" --save_dir "./Inference_Results/Aug11_bs32_ep100_lr4e-4_ps48_xQSM_SE" --ini_chNo 64 --squeeze_exc
-
-# python run_val_eval.py --data_directory "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/QSM_data" --weights_path "/Users/sirbucks/Documents/xQSM/2025-Summer-Research/xQSM/ckpt/Aug8_11/Aug8_bs32_ep100_lr4e-5_ps48_xQSM_SE/xQSM_TransferLearning_Best.pth" --save_dir "./Inference_Results/Aug8_11/Aug8_bs32_ep100_lr4e-5_ps48_xQSM_SE" --ini_chNo 64 --squeeze_exc

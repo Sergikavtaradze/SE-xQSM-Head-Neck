@@ -188,7 +188,11 @@ def TrainTransferLearning(input_root,
     # Set model to training mode
     Chi_Net.train()
 
-    criterion = nn.MSELoss(reduction='sum')
+    if target_suffixes is None:
+        criterion = nn.MSELoss(reduction='sum')
+    else:
+        # Use mean reduction to keep loss scale stable across batch/patch sizes
+        criterion = nn.MSELoss(reduction='mean')
 
     # Only optimize unfrozen layers
     trainable_params = [p for p in Chi_Net.parameters() if p.requires_grad]
@@ -249,7 +253,10 @@ def TrainTransferLearning(input_root,
             loss = criterion(outputs, targets)
             
             # backward pass
-            loss.backward()                  
+            loss.backward()
+            if target_suffixes is not None:
+                grad_clip = 1
+                    torch.nn.utils.clip_grad_norm_(trainable_params, grad_clip)
             optimizer.step()
             
             # Accumulate loss
@@ -326,8 +333,8 @@ if __name__ == '__main__':
     # Parse optional suffix overrides
     input_suffix = args.input_suffix
     target_suffixes = args.target_suffixes
-    # if args.target_suffixes is not None:
-    #     target_suffixes = [s.strip() for s in args.target_suffixes.split(',') if s.strip()]
+    if args.target_suffixes is not None:
+        target_suffixes = [s.strip() for s in args.target_suffixes.split(',') if s.strip()] # Combine into a list
     snapshot_path = args.snapshot_path
     ckpt_folder = args.ckpt_folder
     
