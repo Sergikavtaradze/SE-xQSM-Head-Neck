@@ -275,7 +275,7 @@ class QSMDataSet(data.Dataset):
         target_tensor = torch.from_numpy(target_data).float()
         
         # Have to place this before the tensors are divided into patches
-        if self.affine is True and self.split_type == 'val' or self.split_type == 'test' or self.split_type == 'train':
+        if self.affine is True:
             # Be careful, Usually if the split type is train you wouldn't be evaluating it, but we are for ROI_averages calculations
             return input_tensor.unsqueeze(0), target_tensor.unsqueeze(0), name, input_affine, target_affine
         else:
