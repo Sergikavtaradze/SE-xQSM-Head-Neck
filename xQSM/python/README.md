@@ -7,7 +7,7 @@ Run from `xQSM/python/training/`:
 ```bash
 python Train_NoFreeze_TL.py \
   --input_root "/path/to/QSM_data" \
-  --target_root "/path/to/QSM_consensus" \
+  [--target_root "/path/to/QSM_consensus"] \
   --pretrained_path "/path/to/xQSM/Pretrained_Checkpoints/xQSM_invivo.pth" \
   --snapshot_path "/path/to/xQSM/ckpt" \
   --ckpt_folder "run_name" \
@@ -15,14 +15,22 @@ python Train_NoFreeze_TL.py \
   [--input_suffix "_unwrapped-SEGUE_mask-nfe_bfr-PDF_localfield.nii.gz"] \
   [--target_suffixes "_ConsensusMean.nii.gz"]
 ```
-
-The arguments inside the [...] are optional.
-- se determines if the xQSM network will have additional squeeze and excitation layers
-- input and output suffixes allow for one to train the model with data which have different naming conventions that expected (i.e. using the consensus or the mean of the 3 different reconstruction methods available to us as the ground truth rather than just a single method as the ground truth) 
-
-
 Notes:
-- Use `-se` to enable squeeze-and-excitation.
+The arguments inside the [...] are optional.
+--input_root argument is the path to the directory where the input data for the network is stored in NifTi format
+--target_root is an optional argument and it needs to be specified if the network's targets are in a different directory than the input directory. If no target_root given it defaults to input_root path.
+--pretrained_path is the path to the original xQSM checkpoint.
+--snapshot_path is the path where our checkpoint will be saved
+--ckpt_folder is the name of the folder that will be created inside the snapshot path to save weights for a specific training instance.
+
+Hyperparameters:
+-bs is the batch size
+-ep is the number of epochs
+-lr is the learning rate
+-ps is the input patch size
+[-se] is an optional flag which constructs the xQSM model with additional squeeze and excitation layers.
+
+- input and output suffixes allow for one to train the model with data which have different naming conventions that expected (i.e. using the consensus or the mean of the 3 different reconstruction methods available to us as the ground truth rather than just a single method as the ground truth) 
 - Multiple targets supported with comma-separated `--target_suffixes`.
 
 ### Train on synthetic data
