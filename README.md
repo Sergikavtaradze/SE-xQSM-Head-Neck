@@ -73,6 +73,12 @@ Python 3.9.16: Required for model inference.
 
 MATLAB: Required for running the similarity metric evaluation scripts.
 
+### 4. Head and Neck QSM Repeatability Data
+
+This code was designed to be used with the Head and Neck QSM Repeatability Data set, which is available at
+
+**Cherukara MT, Shmueli K.** Head and Neck QSM Repeatability Data. University College London: Dataset. 2024. [doi.org/10.5522/04/27993215](https://rdr.ucl.ac.uk/articles/dataset/Head_and_Neck_QSM_Repeatability_Data/27993215)
+
 ## Evaluation Metrics
 The similarity metrics (NRMSE, pSNR, and XSIM) are calculated using the scripts in the /evaluation folder. These scripts compare the DL-reconstructed QSM maps against the autoNDI iterative ground truth.
 
