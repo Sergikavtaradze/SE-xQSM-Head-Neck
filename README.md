@@ -21,16 +21,6 @@ To overcome this, we introduce **xQSM-HNSqE**, a deep learning architecture that
 
 **Figure 1**: Schematic representation of DL modules used in xQSM-HNSqE. (A) Octave feature representation6 where spatial features are separated into high- and low-frequency channels, with low-frequency channels down-sampled in space. (B) Octave convolution,6, in which information from both high- and low-frequency streams is integrated at each convolutional layer. (C) Squeeze-and-excitation block,8 in which feature channels are weighted based on their global average.
 
-## Project Results
-
-### ![Quantitative Results](visualizations/images/Results.png)
-
-**Figure 2**: Error metrics for inferred QSMs compared against autoNDI ‘ground truth’ data, for the test dataset (N=7). (A) 1 - Normalized RMSE, such that higher values indicate smaller differences between inference and ground truth. (B) XSIM, where higher values indicate greater similarity.
-
-### ![Qualitative Results](visualizations/images/HN_Reconstruction_Visualizations.png)
-
-**Figure 3**: Example QSMs (coronal view) from one test dataset subject, for each QSM reconstruction method tested, and difference maps relative to autoNDI. In the neck: QSMnet tends to reduce contrast relative to other methods, and xQSM is saturated with extreme values, whereas tissues are more clearly distinguished in xQSM-HN and xQSM-HNSqE. Red arrows: QSM artefact present in StarQSM not present in xQSM versions. Yellow arrows: additional noise in xQSM-HN, which is not present in xQSM-HNSqE.
-
 ---
 
 ## Repository Structure
@@ -85,5 +75,7 @@ If you find this work useful in your research, please cite:
 1. **Kavtaradze, S., Shmueli, K., Cherukara, M. T.** "Deep Learning QSM using xQSM with Squeeze-and-Excitation Networks in the Head and Neck." *ISMRM 2026*, Abstract #560-02-005.
 2. **Bilgic, B., Chatnuntawech, I., Langkammer, C., Setsompop, K.** "Sparse Methods for Quantitative Susceptibility Mapping." *Wavelets and Sparsity XVI, SPIE*, 2015.
 3. **Milovic, C., Bilgic, B., Zhao, B., Acosta-Cabronero, J., Tejos, C.** "Fast Nonlinear Susceptibility Inversion with Variational Regularization." *Magn Reson Med.*, 2018. [DOI: 10.1002/mrm.27073](https://doi.org/10.1002/mrm.27073)
+4. Gao Y, Zhu X, Moffat BA, et al. xQSM: quantitative susceptibility mapping with octave convolutional and noise-regularized neural networks. NMR Biomed. 2021;34(3):e4461. doi:10.1002/nbm.4461
+5. Hu J, Shen L, Albanie S, Sun G, Wu E. Squeeze-and-Excitation Networks. IEEE Trans Pattern Anal Mach Intell. 2020;42(8):2011-2023. doi:10.1109/TPAMI.2019.2913372
 
 For questions or collaboration, please contact us at matthew.cherukara@kcl.ac.uk and sergi.kavtaradze.20@ucl.ac.uk or refer to the poster presented at ISMRM 2026.
